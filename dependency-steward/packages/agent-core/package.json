@@ -1,0 +1,22 @@
+{
+  "name": "@dependency-steward/agent-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "dependencies": {
+    "@dependency-steward/coverage-intelligence": "0.1.0",
+    "@dependency-steward/dependency-intelligence": "0.1.0",
+    "@dependency-steward/policy-engine": "0.1.0",
+    "@dependency-steward/prompt-kit": "0.1.0",
+    "@dependency-steward/shared": "0.1.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit false",
+    "dev": "tsx watch src/index.ts",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node -e \"console.log('No tests for @dependency-steward/agent-core')\""
+  }
+}

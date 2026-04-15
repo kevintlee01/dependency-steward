@@ -1,0 +1,389 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PackageManager {
+  npm
+  pnpm
+  unknown
+}
+
+enum TestFramework {
+  jest
+  vitest
+  mocha
+  none
+  unknown
+}
+
+enum OnboardingState {
+  pending
+  active
+  unsupported
+}
+
+enum HealthStatus {
+  healthy
+  attention
+  critical
+  unknown
+}
+
+enum DependencyKind {
+  patch
+  minor
+  major
+}
+
+enum DependencyDirectness {
+  direct
+  transitive
+}
+
+enum AdvisorySeverity {
+  none
+  low
+  medium
+  high
+  critical
+}
+
+enum RiskTier {
+  low
+  medium
+  high
+}
+
+enum CandidateStatus {
+  identified
+  deferred
+  ready
+  in_progress
+  manual_review
+  completed
+  bypassed
+}
+
+enum RunType {
+  scan
+  test_backfill
+  upgrade
+  follow_up
+}
+
+enum TriggerSource {
+  scheduled
+  manual
+  webhook
+  follow_up
+}
+
+enum RunStatus {
+  queued
+  preparing
+  running
+  awaiting_manual_review
+  waiting_for_followup
+  succeeded
+  failed
+  cancelled
+  superseded
+}
+
+enum StepStatus {
+  pending
+  in_progress
+  blocked
+  succeeded
+  failed
+  skipped
+}
+
+enum PullRequestType {
+  test_backfill
+  dependency_upgrade
+}
+
+enum PullRequestStatus {
+  open
+  merged
+  closed
+  draft
+}
+
+enum ArtifactType {
+  log
+  coverage
+  patch
+  summary
+  transcript
+  changelog
+  pr_body
+}
+
+enum CoverageSourcePreference {
+  worker
+  github_actions
+}
+
+enum LifecycleScriptsPolicy {
+  disallow
+  allowlist_only
+}
+
+enum DeferredUpgradeStatus {
+  pending
+  resumed
+  resolved
+  superseded
+}
+
+model User {
+  id           String   @id @default(uuid())
+  githubUserId String   @unique
+  login        String
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Repository {
+  id                String               @id @default(uuid())
+  installationId    String?
+  owner             String
+  name              String
+  fullName          String               @unique
+  repoUrl           String?
+  localPath         String?
+  defaultBranch     String               @default("main")
+  packageManager    PackageManager       @default(unknown)
+  testFramework     TestFramework        @default(unknown)
+  onboardingState   OnboardingState      @default(pending)
+  healthStatus      HealthStatus         @default(unknown)
+  activePolicyId    String?
+  lastScanAt        DateTime?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  policies          Policy[]
+  dependencySnapshots DependencySnapshot[]
+  coverageSnapshots CoverageSnapshot[]
+  runs              Run[]
+  pullRequests      PullRequestRecord[]
+  deferredUpgrades  DeferredUpgrade[]
+
+  @@index([installationId])
+}
+
+model Policy {
+  id                        String                   @id @default(uuid())
+  repositoryId              String
+  minRepoCoverage           Float
+  minImpactedCoverage       Float
+  coverageAlertThreshold    Float                    @default(70)
+  allowedUpgradeKinds       Json
+  securityOverrideEnabled   Boolean                  @default(true)
+  autoCreatePrs             Boolean                  @default(true)
+  testBackfillEnabled       Boolean                  @default(true)
+  maxRepairAttempts         Int                      @default(2)
+  requiredPassingTestRuns   Int                      @default(3)
+  coverageSourcePreference  CoverageSourcePreference @default(github_actions)
+  coverageWorkflowName      String?
+  coverageArtifactName      String?
+  lifecycleScriptsPolicy    LifecycleScriptsPolicy   @default(disallow)
+  verificationCommands      Json
+  createdAt                 DateTime                 @default(now())
+  updatedAt                 DateTime                 @updatedAt
+  repository                Repository               @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@index([repositoryId])
+}
+
+model DependencySnapshot {
+  id            String              @id @default(uuid())
+  repositoryId  String
+  commitSha     String
+  generatedAt   DateTime            @default(now())
+  manifestPath  String
+  lockfilePath  String?
+  packageManager PackageManager     @default(unknown)
+  repository    Repository          @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  candidates    DependencyCandidate[]
+}
+
+model DependencyCandidate {
+
+  id               String              @id @default(uuid())
+  snapshotId       String
+  packageName      String
+  currentVersion   String
+  targetVersion    String
+  kind             DependencyKind
+  directness       DependencyDirectness
+  advisorySeverity AdvisorySeverity    @default(none)
+  riskScore        Int
+  riskTier         RiskTier
+  recommendedAction String
+  changelogSummary String
+  status           CandidateStatus     @default(identified)
+  rationale        Json
+  breakingSignals  Json
+  snapshot         DependencySnapshot  @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  deferredUpgrades DeferredUpgrade[]
+  runs             Run[]
+
+  @@index([packageName])
+}
+
+model CoverageSnapshot {
+  id           String              @id @default(uuid())
+  repositoryId String
+  commitSha    String
+  generatedAt  DateTime            @default(now())
+  linePct      Float
+  branchPct    Float
+  functionPct  Float
+  statementPct Float
+  artifactId   String?
+  repository   Repository          @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  fileMetrics  CoverageFileMetric[]
+}
+
+model CoverageFileMetric {
+  id                 String           @id @default(uuid())
+  coverageSnapshotId String
+  filePath           String
+  linePct            Float
+  branchPct          Float
+  functionPct        Float
+  statementPct       Float
+  uncoveredLines     Json
+  uncoveredBranches  Json
+  coverageSnapshot   CoverageSnapshot @relation(fields: [coverageSnapshotId], references: [id], onDelete: Cascade)
+
+  @@index([coverageSnapshotId])
+}
+
+model Run {
+  id                          String              @id @default(uuid())
+  repositoryId                String
+  dependencyCandidateId       String?
+  runType                     RunType
+  triggerSource               TriggerSource
+  status                      RunStatus
+  baseBranch                  String
+  baseSha                     String?
+  policyVersion               String?
+  correlationId               String
+  startedAt                   DateTime            @default(now())
+  endedAt                     DateTime?
+  summary                     String?
+  failureCategory             String?
+  blockingReason              String?
+  resumedFromDeferredUpgradeId String?             @unique
+  repository                  Repository          @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  steps                       RunStep[]
+  artifacts                   Artifact[]
+  pullRequests                PullRequestRecord[]
+  evaluation                  EvaluationRecord?
+  deferredUpgradeOrigins      DeferredUpgrade[]   @relation("OriginatingRun")
+  resumedFromDeferredUpgrade  DeferredUpgrade?    @relation("ResumedFromDeferredUpgrade", fields: [resumedFromDeferredUpgradeId], references: [id])
+  dependencyCandidate         DependencyCandidate? @relation(fields: [dependencyCandidateId], references: [id])
+
+  @@index([repositoryId, startedAt])
+  @@index([status, runType])
+}
+
+model RunStep {
+  id          String    @id @default(uuid())
+  runId       String
+  stepKey     String
+  status      StepStatus
+  startedAt   DateTime?
+  endedAt     DateTime?
+  inputJson   Json?
+  outputJson  Json?
+  logArtifactId String?
+  errorCode   String?
+  run         Run       @relation(fields: [runId], references: [id], onDelete: Cascade)
+}
+
+model Artifact {
+  id          String      @id @default(uuid())
+  runId       String
+  artifactType ArtifactType
+  storageKey  String
+  contentType String
+  byteSize    Int
+  createdAt   DateTime    @default(now())
+  run         Run         @relation(fields: [runId], references: [id], onDelete: Cascade)
+}
+
+model PullRequestRecord {
+  id            String             @id @default(uuid())
+  repositoryId  String
+  runId         String
+  githubPrNumber Int?
+  title         String
+  url           String?
+  branchName    String
+  prType        PullRequestType
+  status        PullRequestStatus
+  mergedAt      DateTime?
+  mergeCommitSha String?
+  repository    Repository         @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  run           Run                @relation(fields: [runId], references: [id], onDelete: Cascade)
+  prerequisiteFor DeferredUpgrade[] @relation("PrerequisitePr")
+
+  @@index([repositoryId, status])
+}
+
+model DeferredUpgrade {
+  id                   String               @id @default(uuid())
+  repositoryId         String
+  originatingRunId     String
+  prerequisitePrId     String
+  dependencyCandidateId String
+  packageName          String
+  targetVersion        String
+  originBaseSha        String
+  effectiveBaseSha     String?
+  policyVersion        String
+  status               DeferredUpgradeStatus @default(pending)
+  createdAt            DateTime             @default(now())
+  resumedAt            DateTime?
+  resolvedAt           DateTime?
+  repository           Repository           @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  originatingRun       Run                  @relation("OriginatingRun", fields: [originatingRunId], references: [id], onDelete: Cascade)
+  prerequisitePr       PullRequestRecord    @relation("PrerequisitePr", fields: [prerequisitePrId], references: [id], onDelete: Cascade)
+  dependencyCandidate  DependencyCandidate  @relation(fields: [dependencyCandidateId], references: [id], onDelete: Cascade)
+  resumedRun           Run?                 @relation("ResumedFromDeferredUpgrade")
+
+  @@index([repositoryId, packageName, targetVersion])
+}
+
+model EvaluationRecord {
+  id                  String   @id @default(uuid())
+  runId               String   @unique
+  coverageDelta       Float
+  passedVerification  Boolean
+  flakeDetected       Boolean
+  generatedFilesCount Int
+  acceptedByHuman     Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  run                 Run      @relation(fields: [runId], references: [id], onDelete: Cascade)
+}
+
+model WebhookDelivery {
+  id          String   @id @default(uuid())
+  deliveryId  String   @unique
+  eventName   String
+  payload     Json
+  repositoryId String?
+  runId       String?
+  receivedAt  DateTime @default(now())
+}

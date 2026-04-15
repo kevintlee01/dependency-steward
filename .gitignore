@@ -1,0 +1,36 @@
+.github/instructions/wmt-copilot.instructions.md
+
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+.next/
+.turbo/
+
+# Environment
+.env
+.env.local
+.env*.local
+
+# Coverage & artifacts
+coverage/
+tmp/
+artifacts/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# Prisma local DB
+*.db
+*.db-journal

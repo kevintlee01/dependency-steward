@@ -1,0 +1,38 @@
+{
+  "name": "dependency-steward",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dependency Steward monorepo",
+  "packageManager": "npm@10.8.2",
+  "engines": {
+    "node": ">=18.18.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "node ./scripts/run-workspaces.mjs build",
+    "dev": "node ./scripts/dev.mjs",
+    "dev:api": "npm run dev --workspace @dependency-steward/api",
+    "dev:web": "npm run dev --workspace @dependency-steward/web",
+    "dev:worker": "npm run dev --workspace @dependency-steward/worker",
+    "start:api": "npm run start --workspace @dependency-steward/api",
+    "start:web": "npm run start --workspace @dependency-steward/web",
+    "start:worker": "npm run start --workspace @dependency-steward/worker",
+    "prisma:generate": "node ./scripts/run-prisma.mjs generate",
+    "prisma:migrate": "node ./scripts/run-prisma.mjs migrate",
+    "prisma:studio": "node ./scripts/run-prisma.mjs studio",
+    "prisma:seed": "node ./scripts/run-prisma.mjs seed",
+    "typecheck": "node ./scripts/run-workspaces.mjs typecheck",
+    "lint": "node ./scripts/run-workspaces.mjs lint",
+    "test": "node ./scripts/run-workspaces.mjs test"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.4",
+    "eslint": "^9.20.1",
+    "prettier": "^3.5.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}
