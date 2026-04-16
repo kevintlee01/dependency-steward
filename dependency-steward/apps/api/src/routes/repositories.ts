@@ -213,4 +213,30 @@ export async function registerRepositoryRoutes(app: FastifyInstance, context: Ap
 
     return { id: params.candidateId, status: newStatus };
   });
+
+  app.delete("/api/repos/:repoId", async (request, reply) => {
+    const repoId = (request.params as { repoId: string }).repoId;
+    const repo = await prisma.repository.findUnique({ where: { id: repoId } });
+    if (!repo) {
+      reply.code(404);
+      return { message: "Repository not found" };
+    }
+
+    await prisma.$transaction([
+      prisma.runStep.deleteMany({ where: { run: { repositoryId: repoId } } }),
+      prisma.artifact.deleteMany({ where: { run: { repositoryId: repoId } } }),
+      prisma.evaluationRecord.deleteMany({ where: { run: { repositoryId: repoId } } }),
+      prisma.pullRequestRecord.deleteMany({ where: { repositoryId: repoId } }),
+      prisma.deferredUpgrade.deleteMany({ where: { repositoryId: repoId } }),
+      prisma.run.deleteMany({ where: { repositoryId: repoId } }),
+      prisma.dependencyCandidate.deleteMany({ where: { snapshot: { repositoryId: repoId } } }),
+      prisma.dependencySnapshot.deleteMany({ where: { repositoryId: repoId } }),
+      prisma.coverageFileMetric.deleteMany({ where: { coverageSnapshot: { repositoryId: repoId } } }),
+      prisma.coverageSnapshot.deleteMany({ where: { repositoryId: repoId } }),
+      prisma.policy.deleteMany({ where: { repositoryId: repoId } }),
+      prisma.repository.delete({ where: { id: repoId } })
+    ]);
+
+    return { message: "Repository deleted" };
+  });
 }

@@ -26,6 +26,7 @@ interface RepoInput {
   testFramework: "jest" | "vitest";
   healthStatus: "healthy" | "attention" | "critical";
   defaultBranch?: string;
+  packageRoot?: string;
   coverageAlertThreshold?: number;
   minRepoCoverage?: number;
 }
@@ -38,6 +39,7 @@ async function ensureRepository(input: RepoInput) {
       packageManager: input.packageManager,
       testFramework: input.testFramework,
       healthStatus: input.healthStatus,
+      packageRoot: input.packageRoot ?? null,
       onboardingState: "active",
       repoUrl
     },
@@ -47,6 +49,7 @@ async function ensureRepository(input: RepoInput) {
       fullName: input.fullName,
       repoUrl,
       defaultBranch: input.defaultBranch ?? "main",
+      packageRoot: input.packageRoot ?? null,
       packageManager: input.packageManager,
       testFramework: input.testFramework,
       onboardingState: "active",
@@ -375,6 +378,7 @@ async function main() {
   /* ================================================================
    *  REPO 2 — fullstack_developer_capstone  (Node/Express — attention)
    * ================================================================ */
+
   const { repository: capstone } = await ensureRepository({
     fullName: "intrepidwolf01/fullstack_developer_capstone",
     owner: "intrepidwolf01",
@@ -382,6 +386,7 @@ async function main() {
     packageManager: "npm",
     testFramework: "jest",
     healthStatus: "attention",
+    packageRoot: "server/frontend",
     coverageAlertThreshold: 70,
     minRepoCoverage: 80
   });

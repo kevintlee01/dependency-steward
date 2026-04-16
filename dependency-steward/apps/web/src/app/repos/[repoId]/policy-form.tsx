@@ -13,7 +13,7 @@ export function PolicyForm({ repoId, policy }: { repoId: string; policy: PolicyV
   const [message, setMessage] = useState<string | null>(null);
 
   const [values, setValues] = useState({
-    coverageThreshold: policy?.minRepoCoverage ?? 80,
+    coverageThreshold: policy?.minRepoCoverage ?? 70,
     requiredPassingTestRuns: policy?.requiredPassingTestRuns ?? 3,
     coverageSourcePreference: policy?.coverageSourcePreference ?? "github_actions"
   });

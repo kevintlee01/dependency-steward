@@ -1,11 +1,14 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { Badge, Card, RunTimeline } from "@dependency-steward/ui";
 
 import { getRunDetail } from "../../../../../lib/api";
 
-export default async function RunDetailPage({ params }: { params: Promise<{ runId: string }> }) {
-  const { runId } = await params;
+import { RunActions } from "./run-actions";
+
+export default async function RunDetailPage({ params }: { params: Promise<{ repoId: string; runId: string }> }) {
+  const { repoId, runId } = await params;
   const run = await getRunDetail(runId);
 
   if (!run) {
@@ -14,6 +17,9 @@ export default async function RunDetailPage({ params }: { params: Promise<{ runI
 
   return (
     <div className="ds-grid">
+      <nav style={{ marginBottom: 8 }}>
+        <Link href={`/repos/${repoId}`} className="ds-back-link">← Repository</Link>
+      </nav>
       <section className="ds-hero">
         <Card eyebrow="Run Detail" title={run.headline} subtitle={`Run type: ${run.runType.replaceAll("_", " ")}`}>
           <div className="ds-actions" style={{ marginBottom: 12 }}>
@@ -21,6 +27,7 @@ export default async function RunDetailPage({ params }: { params: Promise<{ runI
               {run.status.replaceAll("_", " ")}
             </Badge>
             <Badge tone="neutral">{run.recommendedAction}</Badge>
+            <RunActions runId={runId} repoId={repoId} />
           </div>
           {run.blockingReason ? <p className="ds-muted">{run.blockingReason}</p> : null}
           {run.dependencyCandidate ? (

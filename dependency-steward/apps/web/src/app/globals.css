@@ -172,6 +172,16 @@ select {
   border: 1px solid rgba(23, 62, 63, 0.08);
 }
 
+.ds-back-link {
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.ds-back-link:hover {
+  color: var(--foreground);
+}
+
 .ds-metric-panel__label,
 .ds-table__meta,
 .ds-muted {
@@ -522,6 +532,27 @@ select {
   font-size: 0.88rem;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.ds-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.ds-confirm-dialog {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 28px 32px;
+  max-width: 420px;
+  width: calc(100vw - 48px);
 }
 
 @media (max-width: 980px) {

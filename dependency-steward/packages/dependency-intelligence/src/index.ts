@@ -87,7 +87,7 @@ export async function inferTestFramework(rootDir: string): Promise<"jest" | "vit
     return "vitest";
   }
 
-  if (dependencies.jest || dependencies["ts-jest"] || dependencies["@jest/core"]) {
+  if (dependencies.jest || dependencies["ts-jest"] || dependencies["@jest/core"] || dependencies["react-scripts"] || dependencies["@testing-library/jest-dom"]) {
     return "jest";
   }
 

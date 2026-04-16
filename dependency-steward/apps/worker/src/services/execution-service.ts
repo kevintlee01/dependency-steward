@@ -109,6 +109,7 @@ export class ExecutionService {
         fullName: repository.fullName,
         repoUrl: repository.repoUrl,
         localPath: repository.localPath,
+        packageRoot: repository.packageRoot,
         defaultBranch: repository.defaultBranch,
         packageManager: repository.packageManager,
         testFramework: repository.testFramework,
@@ -239,6 +240,10 @@ export class ExecutionService {
       workspace,
       installation
     };
+  }
+
+  private resolvePackageRoot(repoDir: string, repository: RepositoryRecord): string {
+    return repository.packageRoot ? path.join(repoDir, repository.packageRoot) : repoDir;
   }
 
   private async resolveBaseSha(repoDir: string): Promise<string> {
@@ -497,6 +502,7 @@ export class ExecutionService {
         this.prepareWorkspace(repository)
       );
       const repoDir = workspaceRef.workspace.repoDir;
+      const pkgDir = this.resolvePackageRoot(repoDir, repository);
       const baseSha = await this.resolveBaseSha(repoDir);
 
       await this.updateRun(payload.runId, {
@@ -506,10 +512,10 @@ export class ExecutionService {
       });
 
       const packageManager = await this.withStep(payload.runId, "detect_package_manager", null, async () =>
-        detectPackageManager(repoDir)
+        detectPackageManager(pkgDir)
       );
       const testFramework = await this.withStep(payload.runId, "detect_test_framework", null, async () =>
-        inferTestFramework(repoDir)
+        inferTestFramework(pkgDir)
       );
 
       await prisma.repository.update({
@@ -528,17 +534,34 @@ export class ExecutionService {
           id: snapshotId,
           repositoryId: repository.id,
           commitSha: baseSha,
-          manifestPath: path.join(repoDir, "package.json"),
+          manifestPath: path.join(pkgDir, "package.json"),
           lockfilePath:
             packageManager === "pnpm"
-              ? path.join(repoDir, "pnpm-lock.yaml")
-              : path.join(repoDir, "package-lock.json"),
+              ? path.join(pkgDir, "pnpm-lock.yaml")
+              : path.join(pkgDir, "package-lock.json"),
           packageManager
         }
       });
 
-      const lcovPath = path.join(repoDir, "coverage", "lcov.info");
-      const summaryJsonPath = path.join(repoDir, "coverage", "coverage-summary.json");
+      // Run tests with coverage to generate coverage artifacts before loading
+      if (testFramework !== "none" && testFramework !== "unknown") {
+        await this.withStep(payload.runId, "install_dependencies", null, async () =>
+          this.installDependencies(pkgDir, packageManager)
+        );
+
+        const run = packageManager === "pnpm" ? "pnpm" : "npm";
+        await this.withStep(payload.runId, "run_tests_with_coverage", null, async () => {
+          const manifest = JSON.parse(await readFile(path.join(pkgDir, "package.json"), "utf8")) as { scripts?: Record<string, string> };
+          const testScript = manifest.scripts?.test;
+          if (!testScript) return { command: "no-op", success: true, stdout: "No test script", stderr: "", exitCode: 0 };
+
+          const args = ["test", "--", "--coverage", "--watchAll=false"];
+          return this.sandbox.run(run, args, { cwd: pkgDir, lifecycleScriptsEnabled: false });
+        });
+      }
+
+      const lcovPath = path.join(pkgDir, "coverage", "lcov.info");
+      const summaryJsonPath = path.join(pkgDir, "coverage", "coverage-summary.json");
       const coverageSnapshot = await this.withStep(payload.runId, "load_coverage", null, async () =>
         loadCoverageFromArtifacts({
           repositoryId: repository.id,
@@ -554,7 +577,7 @@ export class ExecutionService {
 
       const candidates = await this.withStep(payload.runId, "analyze_dependencies", null, async () =>
         buildDependencyCandidates({
-          rootDir: repoDir,
+          rootDir: pkgDir,
           snapshotId,
           impactedCoverage: coverageSnapshot?.linePct ?? null
         })
@@ -594,7 +617,7 @@ export class ExecutionService {
       const primaryCandidate = candidates[0];
       const impacted = coverageSnapshot
         ? await this.withStep(payload.runId, "map_impacted_coverage", null, async () =>
-            evaluateImpactedCoverage(repoDir, primaryCandidate.packageName, coverageSnapshot.fileMetrics)
+            evaluateImpactedCoverage(pkgDir, primaryCandidate.packageName, coverageSnapshot.fileMetrics)
           )
         : { impactedCoverage: null, impactedFiles: [], confidence: "low" as const };
 
@@ -701,6 +724,7 @@ export class ExecutionService {
       const candidate = candidateRecord as unknown as DependencyCandidate;
       workspaceRef = await this.prepareWorkspace(repository);
       const repoDir = workspaceRef.workspace.repoDir;
+      const pkgDir = this.resolvePackageRoot(repoDir, repository);
       const baseSha = await this.resolveBaseSha(repoDir);
       const branchName = this.orchestrator.buildBranchName(candidate, "upgrade", payload.runId);
 
@@ -711,16 +735,16 @@ export class ExecutionService {
       });
 
       await this.withStep(payload.runId, "apply_version_bump", null, async () => {
-        await this.updateManifestDependency(repoDir, candidate);
+        await this.updateManifestDependency(pkgDir, candidate);
         return { branchName };
       });
 
       await this.withStep(payload.runId, "install_dependencies", null, async () =>
-        this.installDependencies(repoDir, repository.packageManager)
+        this.installDependencies(pkgDir, repository.packageManager)
       );
 
       const verificationReports = await this.withStep(payload.runId, "verify_workspace", null, async () =>
-        this.runVerification(repoDir, policy, repository.packageManager)
+        this.runVerification(pkgDir, policy, repository.packageManager)
       );
 
       if (verificationReports.some((report) => !report.success)) {

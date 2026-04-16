@@ -20,6 +20,9 @@ export default async function RepositoryPage({ params }: { params: Promise<{ rep
 
   return (
     <div className="ds-grid">
+      <nav style={{ marginBottom: 8 }}>
+        <Link href="/" className="ds-back-link">← Dashboard</Link>
+      </nav>
       <section className="ds-hero">
         <Card eyebrow="Repository" title={detail.repository.fullName} subtitle="Policy, candidate risk, and current automation posture.">
           <div className="ds-grid ds-grid--metrics">

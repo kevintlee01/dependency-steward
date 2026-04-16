@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 
+import { prisma } from "@dependency-steward/db";
 import type { ApiContext } from "../types";
 import { createQueuedRun, getRunDetail, resolveManualReview } from "../services/repository-service";
 
@@ -69,5 +70,25 @@ export async function registerRunRoutes(app: FastifyInstance, context: ApiContex
     }
 
     return run;
+  });
+
+  app.delete("/api/runs/:runId", async (request, reply) => {
+    const runId = (request.params as { runId: string }).runId;
+    const run = await prisma.run.findUnique({ where: { id: runId } });
+    if (!run) {
+      reply.code(404);
+      return { message: "Run not found" };
+    }
+
+    await prisma.$transaction([
+      prisma.runStep.deleteMany({ where: { runId } }),
+      prisma.artifact.deleteMany({ where: { runId } }),
+      prisma.evaluationRecord.deleteMany({ where: { runId } }),
+      prisma.pullRequestRecord.deleteMany({ where: { runId } }),
+      prisma.deferredUpgrade.deleteMany({ where: { originatingRunId: runId } }),
+      prisma.run.delete({ where: { id: runId } })
+    ]);
+
+    return { message: "Run deleted" };
   });
 }

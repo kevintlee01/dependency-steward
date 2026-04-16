@@ -86,6 +86,7 @@ export interface RepositoryRecord {
   fullName: string;
   repoUrl?: string | null;
   localPath?: string | null;
+  packageRoot?: string | null;
   defaultBranch: string;
   packageManager: PackageManager;
   testFramework: TestFramework;

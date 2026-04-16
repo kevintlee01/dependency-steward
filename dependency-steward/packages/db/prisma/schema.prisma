@@ -160,6 +160,7 @@ model Repository {
   fullName          String               @unique
   repoUrl           String?
   localPath         String?
+  packageRoot       String?
   defaultBranch     String               @default("main")
   packageManager    PackageManager       @default(unknown)
   testFramework     TestFramework        @default(unknown)
